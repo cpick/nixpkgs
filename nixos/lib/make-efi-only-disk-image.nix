@@ -1,6 +1,6 @@
 /* Technical details
 
-# TODO update these docs
+# FIXME: update these docs
 
 `make-disk-image` has a bit of magic to minimize the amount of work to do in a virtual machine.
 
@@ -88,19 +88,19 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # The size of the disk, in megabytes.
   # if "auto" size is calculated based on the contents copied to it and
   #   additionalSpace is taken into account.
-  # TODO shift to working on ESP? See bootSize
+  # FIXME: shift to working on ESP? See bootSize
   diskSize ? "auto"
 
 , # additional disk space to be added to the image if diskSize "auto"
   # is used
-  # TODO shift to working on ESP? Maybe add additionalBootSpace instead?
+  # FIXME: shift to working on ESP? Maybe add additionalBootSpace instead?
   additionalSpace ? "512M"
 
 , # size of the boot partition, is only used if partitionTableType is
   # either "efi" or "hybrid"
   # This will be undersized slightly, as this is actually the offset of
   # the end of the partition. Generally it will be 1MiB smaller.
-  # TODO rm? See diskSize
+  # FIXME: rm? See diskSize
   bootSize ? "256M"
 
 , # Type of partition table to use; either "efi" or "none".
@@ -123,7 +123,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   efiVariables ? OVMF.variables
 
 , # Filesystem label
-  # TODO rm?
+  # FIXME: rm?
   label ? "nixos"
 
 , # Shell code executed after the VM has finished.
@@ -132,7 +132,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # Guest memory size
   memSize ? 1024
 
-, # TODO rm?
+, # FIXME: rm?
   name ? "nixos-disk-image"
 
 , # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
@@ -149,7 +149,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , deterministic ? true
 
 , # GPT Partition Unique Identifier for root partition.
-  # TODO rm?
+  # FIXME: rm?
   rootGPUID ? "F222513B-DED1-49FA-B591-20CE86A2FE7F"
 }:
 
@@ -171,9 +171,9 @@ let format' = format; in let
     raw   = "img";
   }.${format} or format;
 
-  # TODO adjust `mkpart ESP` to start earlier?
-  # TODO calculate ESP size based on kernel size, `bootSize`, `diskSize`, and/or `additionalSpace`?
-  # TODO rm `mkpart primary`
+  # FIXME: adjust `mkpart ESP` to start earlier?
+  # FIXME: calculate ESP size based on kernel size, `bootSize`, `diskSize`, and/or `additionalSpace`?
+  # FIXME: rm `mkpart primary`
   partitionDiskScript = { # switch-case
     efi = ''
       parted --script $diskImage -- \
