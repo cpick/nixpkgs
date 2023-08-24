@@ -193,6 +193,7 @@ let format' = format; in let
 
   useEFIBoot = touchEFIVars;
 
+  # FIXME: audit which tools are still used
   binPath = with pkgs; makeBinPath (
     [ rsync
       util-linux
@@ -208,23 +209,16 @@ let format' = format; in let
     ++ stdenv.initialPath);
 
   # I'm preserving the line below because I'm going to search for it across nixpkgs to consolidate
-  # image building logic. The comment right below this now appears in 4 different places in nixpkgs :)
+  # image building logic. The comment right below this now appears in 5 different places in nixpkgs :)
   # !!! should use XML.
-  sources = map (x: x.source) contents;
-  targets = map (x: x.target) contents;
-  modes   = map (x: x.mode  or "''") contents;
-  users   = map (x: x.user  or "''") contents;
-  groups  = map (x: x.group or "''") contents;
 
+  # FIXME: rm?
   basePaths = [ config.system.build.toplevel ];
 
-  additionalPaths' = subtractLists basePaths additionalPaths;
-
+  # FIXME: rm?
   closureInfo = pkgs.closureInfo {
-    rootPaths = basePaths ++ additionalPaths';
+    rootPaths = basePaths;
   };
-
-  blockSize = toString (4 * 1024); # ext4fs block size (not block device sector size)
 
   prepareImage = ''
     export PATH=${binPath}
