@@ -171,13 +171,6 @@ let format' = format; in let
     raw   = "img";
   }.${format} or format;
 
-  rootPartition = { # switch-case
-    legacy = "1";
-    "legacy+gpt" = "2";
-    efi = "2";
-    hybrid = "3";
-  }.${partitionTableType};
-
   partitionDiskScript = { # switch-case
     legacy = ''
       parted --script $diskImage -- \
