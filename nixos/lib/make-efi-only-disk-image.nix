@@ -1,5 +1,7 @@
 /* Technical details
 
+# TODO update these docs
+
 `make-disk-image` has a bit of magic to minimize the amount of work to do in a virtual machine.
 
 It relies on the [LKL (Linux Kernel Library) project](https://github.com/lkl/linux) which provides Linux kernel as userspace library.
@@ -83,51 +85,30 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 { pkgs
 , lib
 
-, # The NixOS configuration to be installed onto the disk image.
-  config
-
 , # The size of the disk, in megabytes.
   # if "auto" size is calculated based on the contents copied to it and
   #   additionalSpace is taken into account.
+  # TODO shift to working on ESP? See bootSize
   diskSize ? "auto"
 
 , # additional disk space to be added to the image if diskSize "auto"
   # is used
+  # TODO shift to working on ESP? Maybe add additionalBootSpace instead?
   additionalSpace ? "512M"
 
 , # size of the boot partition, is only used if partitionTableType is
   # either "efi" or "hybrid"
   # This will be undersized slightly, as this is actually the offset of
   # the end of the partition. Generally it will be 1MiB smaller.
+  # TODO rm? See diskSize
   bootSize ? "256M"
 
-, # The files and directories to be placed in the target file system.
-  # This is a list of attribute sets {source, target, mode, user, group} where
-  # `source' is the file system object (regular file or directory) to be
-  # grafted in the file system at path `target', `mode' is a string containing
-  # the permissions that will be set (ex. "755"), `user' and `group' are the
-  # user and group name that will be set as owner of the files.
-  # `mode', `user', and `group' are optional.
-  # When setting one of `user' or `group', the other needs to be set too.
-  contents ? []
-
-, # Type of partition table to use; either "legacy", "legacy+gpt", "hybrid", "efi", or "none".
+, # Type of partition table to use; either "efi" or "none".
   # For "efi" images, the GPT partition table is used and a mandatory ESP
-  #   partition of reasonable size is created in addition to the root partition.
-  # For "legacy", the msdos partition table is used and a single large root
-  #   partition is created.
-  # For "legacy+gpt", the GPT partition table is used, a 1MiB no-fs partition for
-  #   use by the bootloader is created, and a single large root partition is
-  #   created.
-  # For "hybrid", the GPT partition table is used and a mandatory ESP
-  #   partition of reasonable size is created in addition to the root partition.
-  #   Also a legacy MBR will be present.
+  #   partition of reasonable size is created.
   # For "none", no partition table is created. Enabling `installBootLoader`
   #   most likely fails as GRUB will probably refuse to install.
-  partitionTableType ? "legacy"
-
-, # Whether to invoke `switch-to-configuration boot` during image creation
-  installBootLoader ? true
+  partitionTableType ? "efi"
 
 , # Whether to output have EFIVARS available in $out/efi-vars.fd and use it during disk creation
   touchEFIVars ? false
@@ -141,15 +122,9 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # EFI variables
   efiVariables ? OVMF.variables
 
-, # The root file system type.
-  fsType ? "ext4"
-
 , # Filesystem label
-  label ? if onlyNixStore then "nix-store" else "nixos"
-
-, # The initial NixOS configuration file to be copied to
-  # /etc/nixos/configuration.nix.
-  configFile ? null
+  # TODO rm?
+  label ? "nixos"
 
 , # Shell code executed after the VM has finished.
   postVM ? ""
@@ -157,12 +132,8 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # Guest memory size
   memSize ? 1024
 
-, # Copy the contents of the Nix store to the root of the image and
-  # skip further setup. Incompatible with `contents`,
-  # `installBootLoader` and `configFile`.
-  onlyNixStore ? false
-
-, name ? "nixos-disk-image"
+, # TODO rm?
+  name ? "nixos-disk-image"
 
 , # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
   format ? "raw"
@@ -177,34 +148,13 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   # Also, to fix last time checked of the ext4 partition if fsType = ext4.
 , deterministic ? true
 
-  # GPT Partition Unique Identifier for root partition.
-, rootGPUID ? "F222513B-DED1-49FA-B591-20CE86A2FE7F"
-  # When fsType = ext4, this is the root Filesystem Unique Identifier.
-  # TODO: support other filesystems someday.
-, rootFSUID ? (if fsType == "ext4" then rootGPUID else null)
-
-, # Whether a nix channel based on the current source tree should be
-  # made available inside the image. Useful for interactive use of nix
-  # utils, but changes the hash of the image when the sources are
-  # updated.
-  copyChannel ? true
-
-, # Additional store paths to copy to the image's store.
-  additionalPaths ? []
+, # GPT Partition Unique Identifier for root partition.
+  # TODO rm?
+  rootGPUID ? "F222513B-DED1-49FA-B591-20CE86A2FE7F"
 }:
 
-assert (lib.assertOneOf "partitionTableType" partitionTableType [ "legacy" "legacy+gpt" "efi" "hybrid" "none" ]);
-assert (lib.assertMsg (fsType == "ext4" && deterministic -> rootFSUID != null) "In deterministic mode with a ext4 partition, rootFSUID must be non-null, by default, it is equal to rootGPUID.");
-  # We use -E offset=X below, which is only supported by e2fsprogs
-assert (lib.assertMsg (partitionTableType != "none" -> fsType == "ext4") "to produce a partition table, we need to use -E offset flag which is support only for fsType = ext4");
-assert (lib.assertMsg (touchEFIVars -> partitionTableType == "hybrid" || partitionTableType == "efi" || partitionTableType == "legacy+gpt") "EFI variables can be used only with a partition table of type: hybrid, efi or legacy+gpt.");
-  # If only Nix store image, then: contents must be empty, configFile must be unset, and we should no install bootloader.
-assert (lib.assertMsg (onlyNixStore -> contents == [] && configFile == null && !installBootLoader) "In a only Nix store image, the contents must be empty, no configuration must be provided and no bootloader should be installed.");
-# Either both or none of {user,group} need to be set
-assert (lib.assertMsg (lib.all
-         (attrs: ((attrs.user  or null) == null)
-              == ((attrs.group or null) == null))
-        contents) "Contents of the disk image should set none of {user, group} or both at the same time.");
+assert (lib.assertOneOf "partitionTableType" partitionTableType [ "efi" "none" ]);
+assert (lib.assertMsg (touchEFIVars -> partitionTableType == "efi") "EFI variables can be used only with a partition table of type: efi.");
 
 with lib;
 
