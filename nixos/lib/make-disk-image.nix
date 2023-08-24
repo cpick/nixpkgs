@@ -111,7 +111,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   # When setting one of `user' or `group', the other needs to be set too.
   contents ? []
 
-, # Type of partition table to use; either "legacy", "efi", or "none".
+, # Type of partition table to use; either "legacy", "legacy+gpt", "hybrid", "efi", or "none".
   # For "efi" images, the GPT partition table is used and a mandatory ESP
   #   partition of reasonable size is created in addition to the root partition.
   # For "legacy", the msdos partition table is used and a single large root
