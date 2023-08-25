@@ -249,51 +249,6 @@ let format' = format; in let
     root="$PWD/root"
     mkdir -p $root
 
-    # Copy arbitrary other files into the image
-    # Semi-shamelessly copied from make-etc.sh. I (@copumpkin) shall factor this stuff out as part of
-    # https://github.com/NixOS/nixpkgs/issues/23052.
-    set -f
-    sources_=(${concatStringsSep " " sources})
-    targets_=(${concatStringsSep " " targets})
-    modes_=(${concatStringsSep " " modes})
-    set +f
-
-    for ((i = 0; i < ''${#targets_[@]}; i++)); do
-      source="''${sources_[$i]}"
-      target="''${targets_[$i]}"
-      mode="''${modes_[$i]}"
-
-      if [ -n "$mode" ]; then
-        rsync_chmod_flags="--chmod=$mode"
-      else
-        rsync_chmod_flags=""
-      fi
-      # Unfortunately cptofs only supports modes, not ownership, so we can't use
-      # rsync's --chown option. Instead, we change the ownerships in the
-      # VM script with chown.
-      rsync_flags="-a --no-o --no-g $rsync_chmod_flags"
-      if [[ "$source" =~ '*' ]]; then
-        # If the source name contains '*', perform globbing.
-        mkdir -p $root/$target
-        for fn in $source; do
-          rsync $rsync_flags "$fn" $root/$target/
-        done
-      else
-        mkdir -p $root/$(dirname $target)
-        if [ -e $root/$target ]; then
-          echo "duplicate entry $target -> $source"
-          exit 1
-        elif [ -d $source ]; then
-          # Append a slash to the end of source to get rsync to copy the
-          # directory _to_ the target instead of _inside_ the target.
-          # (See `man rsync`'s note on a trailing slash.)
-          rsync $rsync_flags $source/ $root/$target
-        else
-          rsync $rsync_flags $source $root/$target
-        fi
-      fi
-    done
-
     export HOME=$TMPDIR
 
     # Provide a Nix database so that nixos-install can copy closures.
@@ -428,24 +383,6 @@ let format' = format; in let
 
         ${optionalString touchEFIVars "mount -t efivarfs efivarfs /sys/firmware/efi/efivars"}
       ''}
-
-      # Install a configuration.nix
-      mkdir -p /mnt/etc/nixos
-
-      # Set the ownerships of the contents. The modes are set in preVM.
-      # No globbing on targets, so no need to set -f
-      targets_=(${concatStringsSep " " targets})
-      users_=(${concatStringsSep " " users})
-      groups_=(${concatStringsSep " " groups})
-      for ((i = 0; i < ''${#targets_[@]}; i++)); do
-        target="''${targets_[$i]}"
-        user="''${users_[$i]}"
-        group="''${groups_[$i]}"
-        if [ -n "$user$group" ]; then
-          # We have to nixos-enter since we need to use the user and group of the VM
-          nixos-enter --root $mountPoint -- chown -R "$user:$group" "$target"
-        fi
-      done
 
       umount -R /mnt
 
