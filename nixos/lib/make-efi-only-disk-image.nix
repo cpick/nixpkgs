@@ -320,7 +320,7 @@ let format' = format; in let
     diskImage=nixos.raw
 
     ${if diskSize == "auto" then ''
-      ${if partitionTableType == "efi" || partitionTableType == "hybrid" then ''
+      ${if partitionTableType == "efi" then ''
         # Add the GPT at the end
         gptSpace=$(( 512 * 34 * 1 ))
         # Normally we'd need to account for alignment and things, if bootSize
@@ -328,14 +328,6 @@ let format' = format; in let
         # represents the offset at which it ends.
         # So we know bootSize is the reserved space in front of the partition.
         reservedSpace=$(( gptSpace + $(numfmt --from=iec '${bootSize}') ))
-      '' else if partitionTableType == "legacy+gpt" then ''
-        # Add the GPT at the end
-        gptSpace=$(( 512 * 34 * 1 ))
-        # And include the bios_grub partition; the ext4 partition starts at 2MB exactly.
-        reservedSpace=$(( gptSpace + 2 * mebibyte ))
-      '' else if partitionTableType == "legacy" then ''
-        # Add the 1MiB aligned reserved space (includes MBR)
-        reservedSpace=$(( mebibyte ))
       '' else ''
         reservedSpace=0
       ''}
@@ -439,7 +431,7 @@ let format' = format; in let
 
       # Create the ESP and mount it. Unlike e2fsprogs, mkfs.vfat doesn't support an
       # '-E offset=X' option, so we can't do this outside the VM.
-      ${optionalString (partitionTableType == "efi" || partitionTableType == "hybrid") ''
+      ${optionalString (partitionTableType == "efi") ''
         mkdir -p /mnt/boot
         mkfs.vfat -n ESP /dev/vda1
         mount /dev/vda1 /mnt/boot
