@@ -1,32 +1,19 @@
 /* Technical details
 
-# FIXME: update these docs
-
-`make-disk-image` has a bit of magic to minimize the amount of work to do in a virtual machine.
+`make-efi-kernel-disk-image` has a bit of magic to avoid doing work in a virtual machine.
 
 It relies on the [LKL (Linux Kernel Library) project](https://github.com/lkl/linux) which provides Linux kernel as userspace library.
-
-The Nix-store only image only need to run LKL tools to produce an image and will never spawn a virtual machine, whereas full images will always require a virtual machine, but also use LKL.
 
 ### Image preparation phase
 
 Image preparation phase will produce the initial image layout in a folder:
 
-- devise a root folder based on `$PWD`
-- prepare the contents by copying and restoring ACLs in this root folder
-- load in the Nix store database all additional paths computed by `pkgs.closureInfo` in a temporary Nix store
-- run `nixos-install` in a temporary folder
-- transfer from the temporary store the additional paths registered to the installed NixOS
-- compute the size of the disk image based on the apparent size of the root folder
-- partition the disk image using the corresponding script according to the partition table type
-- format the partitions if needed
-- use `cptofs` (LKL tool) to copy the root folder inside the disk image
-
-At this step, the disk image already contains the Nix store, it now only needs to be converted to the desired format to be used.
-
-### Image conversion phase
-
-Using `qemu-img`, the disk image is converted from a raw format to the desired format: qcow2(-compressed), vdi, vpc.
+- compute the size of the disk image based on the apparent size of the kernel image
+- create and format a raw, FAT32 ESP filesystem image
+- use `cptofs` (LKL tool) to copy the kernel bzImage into the ESP filesystem image
+- create and partition a raw disk image
+- copy the partition image into the corresponding partition in the disk image
+- convert the raw disk image into the desired format (qcow2(-compressed), vdi, vpc) using `qemu-img`
 
 ### Image Partitioning
 
@@ -34,39 +21,11 @@ Using `qemu-img`, the disk image is converted from a raw format to the desired f
 
 No partition table layout is written. The image is a bare filesystem image.
 
-#### `legacy`
-
-The image is partitioned using MBR. There is one primary ext4 partition starting at 1 MiB that fills the rest of the disk image.
-
-This partition layout is unsuitable for UEFI.
-
-#### `legacy+gpt`
-
-This partition table type uses GPT and:
-
-- create a "no filesystem" partition from 1MiB to 2MiB ;
-- set `bios_grub` flag on this "no filesystem" partition, which marks it as a [GRUB BIOS partition](https://www.gnu.org/software/parted/manual/html_node/set.html) ;
-- create a primary ext4 partition starting at 2MiB and extending to the full disk image ;
-- perform optimal alignments checks on each partition
-
-This partition layout is unsuitable for UEFI boot, because it has no ESP (EFI System Partition) partition. It can work with CSM (Compatibility Support Module) which emulates legacy (BIOS) boot for UEFI.
-
 #### `efi`
 
 This partition table type uses GPT and:
 
-- creates an FAT32 ESP partition from 8MiB to specified `bootSize` parameter (256MiB by default), set it bootable ;
-- creates an primary ext4 partition starting after the boot partition and extending to the full disk image
-
-#### `hybrid`
-
-This partition table type uses GPT and:
-
-- creates a "no filesystem" partition from 0 to 1MiB, set `bios_grub` flag on it ;
-- creates an FAT32 ESP partition from 8MiB to specified `bootSize` parameter (256MiB by default), set it bootable ;
-- creates a primary ext4 partition starting after the boot one and extending to the full disk image
-
-This partition could be booted by a BIOS able to understand GPT layouts and recognizing the MBR at the start.
+- creates an FAT32 ESP partition from 8MiB to specified `bootSize` parameter (256MiB by default), set it bootable
 
 ### How to run determinism analysis on results?
 
