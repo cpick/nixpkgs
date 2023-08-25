@@ -121,10 +121,6 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # EFI variables
   efiVariables ? OVMF.variables
 
-, # Filesystem label
-  # FIXME: rm?
-  label ? "nixos"
-
 , # Shell code executed after the VM has finished.
   postVM ? ""
 
@@ -165,26 +161,6 @@ let format' = format; in let
     raw   = "img";
   }.${format} or format;
 
-  # FIXME: adjust `mkpart ESP` to start earlier?
-  # FIXME: calculate ESP size based on kernel size, `bootSize`, `diskSize`, and/or `additionalSpace`?
-  # FIXME: rm `mkpart primary`
-  partitionDiskScript = { # switch-case
-    efi = ''
-      parted --script $diskImage -- \
-        mklabel gpt \
-        mkpart ESP fat32 8MiB ${bootSize} \
-        set 1 boot on \
-        mkpart primary ext4 ${bootSize} -1
-      ${optionalString deterministic ''
-          sgdisk \
-          --disk-guid=97FD5997-D90B-4AA3-8D16-C1723AEA73C \
-          --partition-guid=1:1C06F03B-704E-4657-B9CD-681A087A2FDC \
-          $diskImage
-      ''}
-    '';
-    none = "";
-  }.${partitionTableType};
-
   useEFIBoot = touchEFIVars;
 
   # FIXME: audit which tools are still used
@@ -207,15 +183,7 @@ let format' = format; in let
   prepareImage = ''
     export PATH=${binPath}
 
-    # Yes, mkfs.ext4 takes different units in different contexts. Fun.
-    sectorsToKilobytes() {
-      echo $(( ( "$1" * 512 ) / 1024 ))
-    }
-
-    sectorsToBytes() {
-      echo $(( "$1" * 512  ))
-    }
-
+    # FIXME: rm?
     # Given lines of numbers, adds them together
     sum_lines() {
       local acc=0
@@ -225,8 +193,10 @@ let format' = format; in let
       echo "$acc"
     }
 
+    # FIXME: rm?
     mebibyte=$(( 1024 * 1024 ))
 
+    # FIXME: rm?
     # Approximative percentage of reserved space in an ext4 fs over 512MiB.
     # 0.05208587646484375
     #  × 1000, integer part: 52
@@ -236,6 +206,7 @@ let format' = format; in let
 
     mkdir $out
 
+    # FIXME: rm?
     root="$PWD/root"
     mkdir -p $root
 
@@ -247,6 +218,7 @@ let format' = format; in let
 
     diskImage=efi-only.raw
 
+    # FIXME: pass the length into mkfs.vfat instead and use its -C option to create the file
     ${if diskSize == "auto" then ''
       ${if partitionTableType == "efi" then ''
         # Add the GPT at the end
@@ -261,10 +233,12 @@ let format' = format; in let
       ''}
       additionalSpace=$(( $(numfmt --from=iec '${additionalSpace}') + reservedSpace ))
 
+      # FIXME: kernal image only
       # Compute required space in filesystem blocks
       diskUsage=$(find . ! -type d -print0 | du --files0-from=- --apparent-size --block-size "${blockSize}" | cut -f1 | sum_lines)
       # Each inode takes space!
       numInodes=$(find . | wc -l)
+      # FIXME: same on FAT32?
       # Convert to bytes, inodes take two blocks each!
       diskUsage=$(( (diskUsage + 2 * numInodes) * ${blockSize} ))
       # Then increase the required space to account for the reserved blocks.
@@ -292,23 +266,40 @@ let format' = format; in let
       truncate -s ${toString diskSize}M $diskImage
     ''}
 
-    ${partitionDiskScript}
+    # Create the ESP
+    mkfs.vfat -n ESP $diskImage
+
+    echo "copying staging root to image..."
+    # FIXME: set appropriate destination directory
+    cptofs -p \
+           -t fat32 \
+           -i $diskImage \
+           $pkgs.kernel / ||
+      (echo >&2 "ERROR: cptofs failed. diskSize might be too small for closure."; exit 1)
 
     ${if partitionTableType != "none" then ''
+      # FIXME: operate on a different file than $diskImage
+      # FIXME: adjust `mkpart ESP` to start earlier than 8MiB?
+      # FIXME: calculate ESP size based on kernel size, `bootSize`, `diskSize`, and/or `additionalSpace`?
+      parted --script $diskImage -- \
+        mklabel gpt \
+        mkpart ESP fat32 8MiB ${bootSize} \
+        set 1 boot on
+      ${optionalString deterministic ''
+          sgdisk \
+          --disk-guid=97FD5997-D90B-4AA3-8D16-C1723AEA73C \
+          --partition-guid=1:1C06F03B-704E-4657-B9CD-681A087A2FDC \
+          $diskImage
+      ''}
+
+      # FIXME: use already-calculated values instead of running `partx`?
       # Get start & length of the root partition in sectors to $START and $SECTORS.
       eval $(partx $diskImage -o START,SECTORS --nr ${rootPartition} --pairs)
 
-      mkfs.${fsType} -b ${blockSize} -F -L ${label} $diskImage -E offset=$(sectorsToBytes $START) $(sectorsToKilobytes $SECTORS)K
+      # FIXME: cpoy the ESP filesystem into its partition (possibly using `dd` on $START and $SECTORS?)
     '' else ''
-      mkfs.${fsType} -b ${blockSize} -F -L ${label} $diskImage
+      # FIXME: move filesystem image into final destination
     ''}
-
-    echo "copying staging root to image..."
-    cptofs -p ${optionalString (partitionTableType != "none") "-P ${rootPartition}"} \
-           -t ${fsType} \
-           -i $diskImage \
-           $root/* / ||
-      (echo >&2 "ERROR: cptofs failed. diskSize might be too small for closure."; exit 1)
   '';
 
   moveOrConvertImage = ''
@@ -326,6 +317,7 @@ let format' = format; in let
     chmod 0644 $efiVars
   '';
 
+  # FIXME: don't run this in a vm
   buildImage = pkgs.vmTools.runInLinuxVM (
     pkgs.runCommand name {
       preVM = prepareImage + lib.optionalString touchEFIVars createEFIVars;
@@ -357,13 +349,7 @@ let format' = format; in let
       mkdir $mountPoint
       mount $rootDisk $mountPoint
 
-      # Create the ESP and mount it. Unlike e2fsprogs, mkfs.vfat doesn't support an
-      # '-E offset=X' option, so we can't do this outside the VM.
       ${optionalString (partitionTableType == "efi") ''
-        mkdir -p /mnt/boot
-        mkfs.vfat -n ESP /dev/vda1
-        mount /dev/vda1 /mnt/boot
-
         ${optionalString touchEFIVars "mount -t efivarfs efivarfs /sys/firmware/efi/efivars"}
       ''}
 
