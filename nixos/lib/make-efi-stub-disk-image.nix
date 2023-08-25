@@ -1,6 +1,6 @@
 /* Technical details
 
-`make-efi-kernel-disk-image` has a bit of magic to avoid doing work in a virtual machine.
+`make-efi-stub-disk-image` has a bit of magic to avoid doing work in a virtual machine.
 
 It relies on the [LKL (Linux Kernel Library) project](https://github.com/lkl/linux) which provides Linux kernel as userspace library.
 
@@ -8,9 +8,9 @@ It relies on the [LKL (Linux Kernel Library) project](https://github.com/lkl/lin
 
 Image preparation phase will produce the initial image layout in a folder:
 
-- compute the size of the disk image based on the apparent size of the kernel image
+- compute the size of the disk image based on the apparent size of the EFI stub kernel image
 - create and format a raw, FAT32 ESP filesystem image
-- use `cptofs` (LKL tool) to copy the kernel bzImage into the ESP filesystem image
+- use `cptofs` (LKL tool) to copy the EFI stub kernel bzImage into the ESP filesystem image
 - create and partition a raw disk image
 - copy the partition image into the corresponding partition in the disk image
 - convert the raw disk image into the desired format (qcow2(-compressed), vdi, vpc) using `qemu-img`
@@ -68,7 +68,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   # For "none", no partition table is created.
   partitionTableType ? "efi"
 
-, name ? "efi-kernel-disk-image"
+, name ? "efi-stub-disk-image"
 
 , # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
   format ? "raw"
@@ -94,7 +94,7 @@ let format' = format; in let
 
   compress = optionalString (format' == "qcow2-compressed") "-c";
 
-  filename = "efi-kernel." + {
+  filename = "efi-stub." + {
     qcow2 = "qcow2";
     vdi   = "vdi";
     vpc   = "vhd";
@@ -151,7 +151,7 @@ let format' = format; in let
     # FIXME: rm?
     chmod 755 "$TMPDIR"
 
-    diskImage=efi-kernel.raw
+    diskImage=efi-stub.raw
 
     # FIXME: pass the length into mkfs.vfat instead and use its -C option to create the file
     ${if diskSize == "auto" then ''
