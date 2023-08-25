@@ -378,7 +378,7 @@ let format' = format; in let
     cptofs -p ${optionalString (partitionTableType != "none") "-P ${rootPartition}"} \
            -t ${fsType} \
            -i $diskImage \
-           $root${optionalString onlyNixStore builtins.storeDir}/* / ||
+           $root/* / ||
       (echo >&2 "ERROR: cptofs failed. diskSize might be too small for closure."; exit 1)
   '';
 
@@ -474,7 +474,4 @@ let format' = format; in let
     ''
   );
 in
-  if onlyNixStore then
-    pkgs.runCommand name {}
-      (prepareImage + moveOrConvertImage + postVM)
-  else buildImage
+  buildImage
