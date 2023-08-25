@@ -440,9 +440,6 @@ let format' = format; in let
 
       # Install a configuration.nix
       mkdir -p /mnt/etc/nixos
-      ${optionalString (configFile != null) ''
-        cp ${configFile} /mnt/etc/nixos/configuration.nix
-      ''}
 
       # Set the ownerships of the contents. The modes are set in preVM.
       # No globbing on targets, so no need to set -f
