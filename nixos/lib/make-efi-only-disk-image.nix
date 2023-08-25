@@ -131,8 +131,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # Guest memory size
   memSize ? 1024
 
-, # FIXME: rm?
-  name ? "nixos-disk-image"
+, name ? "efi-only-disk-image"
 
 , # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
   format ? "raw"
@@ -159,7 +158,7 @@ let format' = format; in let
 
   compress = optionalString (format' == "qcow2-compressed") "-c";
 
-  filename = "nixos." + {
+  filename = "efi-only." + {
     qcow2 = "qcow2";
     vdi   = "vdi";
     vpc   = "vhd";
@@ -308,7 +307,7 @@ let format' = format; in let
       --no-channel-copy \
       --substituters ""
 
-    diskImage=nixos.raw
+    diskImage=efi-only.raw
 
     ${if diskSize == "auto" then ''
       ${if partitionTableType == "efi" then ''
