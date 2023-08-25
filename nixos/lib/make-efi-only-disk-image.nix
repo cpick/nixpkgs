@@ -194,8 +194,6 @@ let format' = format; in let
       parted
       e2fsprogs
       lkl
-      config.system.build.nixos-install
-      config.system.build.nixos-enter
       nix
       systemdMinimal
     ]
@@ -205,14 +203,6 @@ let format' = format; in let
   # I'm preserving the line below because I'm going to search for it across nixpkgs to consolidate
   # image building logic. The comment right below this now appears in 5 different places in nixpkgs :)
   # !!! should use XML.
-
-  # FIXME: rm?
-  basePaths = [ config.system.build.toplevel ];
-
-  # FIXME: rm?
-  closureInfo = pkgs.closureInfo {
-    rootPaths = basePaths;
-  };
 
   prepareImage = ''
     export PATH=${binPath}
@@ -249,18 +239,11 @@ let format' = format; in let
     root="$PWD/root"
     mkdir -p $root
 
+    # FIXME: rm?
     export HOME=$TMPDIR
 
-    # Provide a Nix database so that nixos-install can copy closures.
-    export NIX_STATE_DIR=$TMPDIR/state
-    nix-store --load-db < ${closureInfo}/registration
-
+    # FIXME: rm?
     chmod 755 "$TMPDIR"
-    echo "running nixos-install..."
-    nixos-install --root $root --no-bootloader --no-root-passwd \
-      --system ${config.system.build.toplevel} \
-      --no-channel-copy \
-      --substituters ""
 
     diskImage=efi-only.raw
 
