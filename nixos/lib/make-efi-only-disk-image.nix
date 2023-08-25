@@ -109,9 +109,6 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   # For "none", no partition table is created.
   partitionTableType ? "efi"
 
-, # Shell code executed after the VM has finished.
-  postVM ? ""
-
 , # Guest memory size
   memSize ? 1024
 
@@ -165,7 +162,7 @@ let format' = format; in let
   # image building logic. The comment right below this now appears in 5 different places in nixpkgs :)
   # !!! should use XML.
 
-  prepareImage = ''
+  buildImage = ''
     export PATH=${binPath}
 
     # FIXME: rm?
@@ -281,13 +278,12 @@ let format' = format; in let
       # Get start & length of the root partition in sectors to $START and $SECTORS.
       eval $(partx $diskImage -o START,SECTORS --nr ${rootPartition} --pairs)
 
-      # FIXME: cpoy the ESP filesystem into its partition (possibly using `dd` on $START and $SECTORS?)
+      # FIXME: copy the ESP filesystem into its partition (possibly using `dd` on $START and $SECTORS?)
     '' else ''
       # FIXME: move filesystem image into final destination
     ''}
-  '';
 
-  moveOrConvertImage = ''
+    # Move or convert image
     ${if format == "raw" then ''
       mv $diskImage $out/${filename}
     '' else ''
@@ -295,40 +291,6 @@ let format' = format; in let
     ''}
     diskImage=$out/${filename}
   '';
-
-  # FIXME: don't run this in a vm
-  buildImage = pkgs.vmTools.runInLinuxVM (
-    pkgs.runCommand name {
-      preVM = prepareImage;
-      buildInputs = with pkgs; [ util-linux e2fsprogs dosfstools ];
-      postVM = moveOrConvertImage + postVM;
-      inherit memSize;
-    } ''
-      export PATH=${binPath}:$PATH
-
-      rootDisk=${if partitionTableType != "none" then "/dev/vda${rootPartition}" else "/dev/vda"}
-
-      # It is necessary to set root filesystem unique identifier in advance, otherwise
-      # bootloader might get the wrong one and fail to boot.
-      # At the end, we reset again because we want deterministic timestamps.
-      ${optionalString (fsType == "ext4" && deterministic) ''
-        tune2fs -T now ${optionalString deterministic "-U ${rootFSUID}"} -c 0 -i 0 $rootDisk
-      ''}
-      # make systemd-boot find ESP without udev
-      mkdir /dev/block
-      ln -s /dev/vda1 /dev/block/254:1
-
-      # Make sure resize2fs works. Note that resize2fs has stricter criteria for resizing than a normal
-      # mount, so the `-c 0` and `-i 0` don't affect it. Setting it to `now` doesn't produce deterministic
-      # output, of course, but we can fix that when/if we start making images deterministic.
-      # In deterministic mode, this is fixed to 1970-01-01 (UNIX timestamp 0).
-      # This two-step approach is necessary otherwise `tune2fs` will want a fresher filesystem to perform
-      # some changes.
-      ${optionalString (fsType == "ext4") ''
-        tune2fs -T now ${optionalString deterministic "-U ${rootFSUID}"} -c 0 -i 0 $rootDisk
-        ${optionalString deterministic "tune2fs -f -T 19700101 $rootDisk"}
-      ''}
-    ''
-  );
 in
-  buildImage
+  pkgs.runCommand name {}
+    buildImage
