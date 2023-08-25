@@ -109,18 +109,6 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   # For "none", no partition table is created.
   partitionTableType ? "efi"
 
-, # Whether to output have EFIVARS available in $out/efi-vars.fd and use it during disk creation
-  touchEFIVars ? false
-
-, # OVMF firmware derivation
-  OVMF ? pkgs.OVMF.fd
-
-, # EFI firmware
-  efiFirmware ? OVMF.firmware
-
-, # EFI variables
-  efiVariables ? OVMF.variables
-
 , # Shell code executed after the VM has finished.
   postVM ? ""
 
@@ -144,7 +132,6 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 }:
 
 assert (lib.assertOneOf "partitionTableType" partitionTableType [ "efi" "none" ]);
-assert (lib.assertMsg (touchEFIVars -> partitionTableType == "efi") "EFI variables can be used only with a partition table of type: efi.");
 
 with lib;
 
@@ -160,8 +147,6 @@ let format' = format; in let
     vpc   = "vhd";
     raw   = "img";
   }.${format} or format;
-
-  useEFIBoot = touchEFIVars;
 
   # FIXME: audit which tools are still used
   binPath = with pkgs; makeBinPath (
@@ -311,24 +296,12 @@ let format' = format; in let
     diskImage=$out/${filename}
   '';
 
-  createEFIVars = ''
-    efiVars=$out/efi-vars.fd
-    cp ${efiVariables} $efiVars
-    chmod 0644 $efiVars
-  '';
-
   # FIXME: don't run this in a vm
   buildImage = pkgs.vmTools.runInLinuxVM (
     pkgs.runCommand name {
-      preVM = prepareImage + lib.optionalString touchEFIVars createEFIVars;
+      preVM = prepareImage;
       buildInputs = with pkgs; [ util-linux e2fsprogs dosfstools ];
       postVM = moveOrConvertImage + postVM;
-      QEMU_OPTS =
-        concatStringsSep " " (lib.optional useEFIBoot "-drive if=pflash,format=raw,unit=0,readonly=on,file=${efiFirmware}"
-        ++ lib.optionals touchEFIVars [
-          "-drive if=pflash,format=raw,unit=1,file=$efiVars"
-        ]
-      );
       inherit memSize;
     } ''
       export PATH=${binPath}:$PATH
@@ -344,16 +317,6 @@ let format' = format; in let
       # make systemd-boot find ESP without udev
       mkdir /dev/block
       ln -s /dev/vda1 /dev/block/254:1
-
-      mountPoint=/mnt
-      mkdir $mountPoint
-      mount $rootDisk $mountPoint
-
-      ${optionalString (partitionTableType == "efi") ''
-        ${optionalString touchEFIVars "mount -t efivarfs efivarfs /sys/firmware/efi/efivars"}
-      ''}
-
-      umount -R /mnt
 
       # Make sure resize2fs works. Note that resize2fs has stricter criteria for resizing than a normal
       # mount, so the `-c 0` and `-i 0` don't affect it. Setting it to `now` doesn't produce deterministic
