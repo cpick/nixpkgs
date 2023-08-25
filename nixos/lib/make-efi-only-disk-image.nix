@@ -139,17 +139,13 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 
   # Whether to fix:
   #   - GPT Disk Unique Identifier (diskGUID)
-  #   - GPT Partition Unique Identifier: depends on the layout, root partition UUID can be controlled through `rootGPUID` option
+  #   - GPT Partition Unique Identifier: depends on the layout
   #   - GPT Partition Type Identifier: fixed according to the layout, e.g. ESP partition, etc. through `parted` invocation.
   #   - Filesystem Unique Identifier when fsType = ext4 for *root partition*.
   # BIOS/MBR support is "best effort" at the moment.
   # Boot partitions may not be deterministic.
   # Also, to fix last time checked of the ext4 partition if fsType = ext4.
 , deterministic ? true
-
-, # GPT Partition Unique Identifier for root partition.
-  # FIXME: rm?
-  rootGPUID ? "F222513B-DED1-49FA-B591-20CE86A2FE7F"
 }:
 
 assert (lib.assertOneOf "partitionTableType" partitionTableType [ "efi" "none" ]);
