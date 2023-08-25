@@ -106,8 +106,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # Type of partition table to use; either "efi" or "none".
   # For "efi" images, the GPT partition table is used and a mandatory ESP
   #   partition of reasonable size is created.
-  # For "none", no partition table is created. Enabling `installBootLoader`
-  #   most likely fails as GRUB will probably refuse to install.
+  # For "none", no partition table is created.
   partitionTableType ? "efi"
 
 , # Whether to output have EFIVARS available in $out/efi-vars.fd and use it during disk creation
@@ -443,21 +442,6 @@ let format' = format; in let
       mkdir -p /mnt/etc/nixos
       ${optionalString (configFile != null) ''
         cp ${configFile} /mnt/etc/nixos/configuration.nix
-      ''}
-
-      ${lib.optionalString installBootLoader ''
-        # In this throwaway resource, we only have /dev/vda, but the actual VM may refer to another disk for bootloader, e.g. /dev/vdb
-        # Use this option to create a symlink from vda to any arbitrary device you want.
-        ${optionalString (config.boot.loader.grub.enable && config.boot.loader.grub.device != "/dev/vda") ''
-            mkdir -p $(dirname ${config.boot.loader.grub.device})
-            ln -s /dev/vda ${config.boot.loader.grub.device}
-        ''}
-
-        # Set up core system link, bootloader (sd-boot, GRUB, uboot, etc.), etc.
-        NIXOS_INSTALL_BOOTLOADER=1 nixos-enter --root $mountPoint -- /nix/var/nix/profiles/system/bin/switch-to-configuration boot
-
-        # The above scripts will generate a random machine-id and we don't want to bake a single ID into all our images
-        rm -f $mountPoint/etc/machine-id
       ''}
 
       # Set the ownerships of the contents. The modes are set in preVM.
