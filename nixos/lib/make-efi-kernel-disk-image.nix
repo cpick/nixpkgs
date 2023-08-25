@@ -112,7 +112,7 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 , # Guest memory size
   memSize ? 1024
 
-, name ? "efi-only-disk-image"
+, name ? "efi-kernel-disk-image"
 
 , # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
   format ? "raw"
@@ -138,7 +138,7 @@ let format' = format; in let
 
   compress = optionalString (format' == "qcow2-compressed") "-c";
 
-  filename = "efi-only." + {
+  filename = "efi-kernel." + {
     qcow2 = "qcow2";
     vdi   = "vdi";
     vpc   = "vhd";
@@ -198,7 +198,7 @@ let format' = format; in let
     # FIXME: rm?
     chmod 755 "$TMPDIR"
 
-    diskImage=efi-only.raw
+    diskImage=efi-kernel.raw
 
     # FIXME: pass the length into mkfs.vfat instead and use its -C option to create the file
     ${if diskSize == "auto" then ''
