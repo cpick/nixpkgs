@@ -68,9 +68,6 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
   # For "none", no partition table is created.
   partitionTableType ? "efi"
 
-, # Guest memory size
-  memSize ? 1024
-
 , name ? "efi-kernel-disk-image"
 
 , # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
