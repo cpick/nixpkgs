@@ -103,13 +103,10 @@ let format' = format; in let
 
   # FIXME: audit which tools are still used
   binPath = with pkgs; makeBinPath (
-    [ rsync
+    [
       util-linux
       parted
-      e2fsprogs
       lkl
-      nix
-      systemdMinimal
     ]
     ++ lib.optional deterministic gptfdisk
     ++ stdenv.initialPath);
