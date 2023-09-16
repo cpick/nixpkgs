@@ -1,31 +1,24 @@
 /* Technical details
 
-`make-efi-stub-disk-image` has a bit of magic to avoid doing work in a virtual machine.
-
-It relies on the [LKL (Linux Kernel Library) project](https://github.com/lkl/linux) which provides Linux kernel as userspace library.
-
 ### Image preparation phase
 
 Image preparation phase will produce the initial image layout in a folder:
 
-- compute the size of the disk image based on the apparent size of the EFI stub kernel image
-- create and format a raw, FAT32 ESP filesystem image
-- use `cptofs` (LKL tool) to copy the EFI stub kernel bzImage into the ESP filesystem image
-- create and partition a raw disk image
-- copy the partition image into the corresponding partition in the disk image
-- convert the raw disk image into the desired format (qcow2(-compressed), vdi, vpc) using `qemu-img`
+- Compute the size of the disk image based on the size of the EFI stub kernel image.
+- Create and, optionally, partition a raw disk image.
+- Format the FAT32 ESP partition.
+- Use `mcopy` to copy the EFI stub kernel bzImage into the ESP filesystem.
+- Optionally convert the raw disk image into the desired format (qcow2(-compressed), vdi, vpc) using `qemu-img`.
 
 ### Image Partitioning
 
 #### `none`
 
-No partition table layout is written. The image is a bare filesystem image.
+No partition table layout is written. The image is a bare, FAT filesystem image.
 
 #### `efi`
 
-This partition table type uses GPT and:
-
-- creates an FAT32 ESP partition from 8MiB to specified `bootSize` parameter (256MiB by default), set it bootable
+This partition table type uses GPT and creates a bootable, FAT ESP partition.
 
 ### How to run determinism analysis on results?
 
@@ -44,43 +37,23 @@ To solve this, you can run `fdisk -l $image` and generate `dd if=$image of=$imag
 { pkgs
 , lib
 
-, # The size of the disk, in megabytes.
-  # if "auto" size is calculated based on the contents copied to it and
-  #   additionalSpace is taken into account.
-  # FIXME: shift to working on ESP? See bootSize
-  diskSize ? "auto"
-
-, # additional disk space to be added to the image if diskSize "auto"
-  # is used
-  # FIXME: shift to working on ESP? Maybe add additionalBootSpace instead?
-  additionalSpace ? "512M"
-
-, # size of the boot partition, is only used if partitionTableType is
-  # either "efi" or "hybrid"
-  # This will be undersized slightly, as this is actually the offset of
-  # the end of the partition. Generally it will be 1MiB smaller.
-  # FIXME: rm? See diskSize
-  bootSize ? "256M"
+, # The NixOS configuration from which to fetch the kernal to be installed onto the disk image.
+  config
 
 , # Type of partition table to use; either "efi" or "none".
-  # For "efi" images, the GPT partition table is used and a mandatory ESP
-  #   partition of reasonable size is created.
-  # For "none", no partition table is created.
+  # For "efi" images, the GPT partition table is used and a FAT ESP partition is created.
+  # For "none", no partition table is created, just a bare, FAT filesystem.
   partitionTableType ? "efi"
 
 , name ? "efi-stub-disk-image"
 
-, # Disk image format, one of qcow2, qcow2-compressed, vdi, vpc, raw.
+, # Disk image format, one of "qcow2", "qcow2-compressed", "vdi", "vpc", or "raw".
   format ? "raw"
 
   # Whether to fix:
-  #   - GPT Disk Unique Identifier (diskGUID)
-  #   - GPT Partition Unique Identifier: depends on the layout
-  #   - GPT Partition Type Identifier: fixed according to the layout, e.g. ESP partition, etc. through `parted` invocation.
-  #   - Filesystem Unique Identifier when fsType = ext4 for *root partition*.
-  # BIOS/MBR support is "best effort" at the moment.
-  # Boot partitions may not be deterministic.
-  # Also, to fix last time checked of the ext4 partition if fsType = ext4.
+  #   - GPT Disk Unique Identifier (diskGUID).
+  #   - GPT Partition Unique Identifier.
+  #   - FAT Serial Number.
 , deterministic ? true
 }:
 
@@ -101,12 +74,10 @@ let format' = format; in let
     raw   = "img";
   }.${format} or format;
 
-  # FIXME: audit which tools are still used
   binPath = with pkgs; makeBinPath (
     [
-      util-linux
+      mtools
       parted
-      lkl
     ]
     ++ lib.optional deterministic gptfdisk
     ++ stdenv.initialPath);
@@ -118,129 +89,101 @@ let format' = format; in let
   buildImage = ''
     export PATH=${binPath}
 
-    # FIXME: rm?
-    # Given lines of numbers, adds them together
-    sum_lines() {
-      local acc=0
-      while read -r number; do
-        acc=$((acc+number))
-      done
-      echo "$acc"
-    }
-
-    # FIXME: rm?
-    mebibyte=$(( 1024 * 1024 ))
-
-    # FIXME: rm?
-    # Approximative percentage of reserved space in an ext4 fs over 512MiB.
-    # 0.05208587646484375
-    #  × 1000, integer part: 52
-    compute_fudge() {
-      echo $(( $1 * 52 / 1000 ))
-    }
-
-    mkdir $out
-
-    # FIXME: rm?
-    root="$PWD/root"
-    mkdir -p $root
-
-    # FIXME: rm?
-    export HOME=$TMPDIR
-
-    # FIXME: rm?
-    chmod 755 "$TMPDIR"
-
-    diskImage=efi-stub.raw
-
-    # FIXME: pass the length into mkfs.vfat instead and use its -C option to create the file
-    ${if diskSize == "auto" then ''
-      ${if partitionTableType == "efi" then ''
-        # Add the GPT at the end
-        gptSpace=$(( 512 * 34 * 1 ))
-        # Normally we'd need to account for alignment and things, if bootSize
-        # represented the actual size of the boot partition. But it instead
-        # represents the offset at which it ends.
-        # So we know bootSize is the reserved space in front of the partition.
-        reservedSpace=$(( gptSpace + $(numfmt --from=iec '${bootSize}') ))
-      '' else ''
-        reservedSpace=0
-      ''}
-      additionalSpace=$(( $(numfmt --from=iec '${additionalSpace}') + reservedSpace ))
-
-      # FIXME: kernal image only
-      # Compute required space in filesystem blocks
-      diskUsage=$(find . ! -type d -print0 | du --files0-from=- --apparent-size --block-size "${blockSize}" | cut -f1 | sum_lines)
-      # Each inode takes space!
-      numInodes=$(find . | wc -l)
-      # FIXME: same on FAT32?
-      # Convert to bytes, inodes take two blocks each!
-      diskUsage=$(( (diskUsage + 2 * numInodes) * ${blockSize} ))
-      # Then increase the required space to account for the reserved blocks.
-      fudge=$(compute_fudge $diskUsage)
-      requiredFilesystemSpace=$(( diskUsage + fudge ))
-
-      diskSize=$(( requiredFilesystemSpace  + additionalSpace ))
-
-      # Round up to the nearest mebibyte.
-      # This ensures whole 512 bytes sector sizes in the disk image
-      # and helps towards aligning partitions optimally.
-      if (( diskSize % mebibyte )); then
-        diskSize=$(( ( diskSize / mebibyte + 1) * mebibyte ))
-      fi
-
-      truncate -s "$diskSize" $diskImage
-
-      printf "Automatic disk size...\n"
-      printf "  Closure space use: %d bytes\n" $diskUsage
-      printf "  fudge: %d bytes\n" $fudge
-      printf "  Filesystem size needed: %d bytes\n" $requiredFilesystemSpace
-      printf "  Additional space: %d bytes\n" $additionalSpace
-      printf "  Disk image size: %d bytes\n" $diskSize
+    ${if partitionTableType == "efi" then ''
+      # https://en.wikipedia.org/wiki/GUID_Partition_Table
+      gptSectors=$(( 1 + 32 )) # partition table header + partition entries
+      offsetSectors=$(( 1 + gptSectors )) # protective MBR + primary GPT
+      trailingSectors=$gptSectors # secondary GPT
+      unset gptSectors
     '' else ''
-      truncate -s ${toString diskSize}M $diskImage
+      offsetSectors=0
+      trailingSectors=0
     ''}
 
-    # Create the ESP
-    mkfs.vfat -n ESP $diskImage
+    sectorBytes=512
 
-    echo "copying staging root to image..."
-    # FIXME: set appropriate destination directory
-    cptofs -p \
-           -t fat32 \
-           -i $diskImage \
-           $pkgs.kernel / ||
-      (echo >&2 "ERROR: cptofs failed. diskSize might be too small for closure."; exit 1)
+    kernel=${config.boot.kernelPackages.kernel}/bzImage
+    kernelSectors=$(du --apparent-size --block-size $sectorBytes $kernel | cut -f1)
 
-    ${if partitionTableType != "none" then ''
-      # FIXME: operate on a different file than $diskImage
-      # FIXME: adjust `mkpart ESP` to start earlier than 8MiB?
-      # FIXME: calculate ESP size based on kernel size, `bootSize`, `diskSize`, and/or `additionalSpace`?
+    # https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system
+
+    # FAT12/16 usually has 1 reserved sector and a max of 512 32-byte root directory entries.
+    # FAT32 usually has 32 reserved sectors and no root directory region.
+    maxReservedAndRootDirectoryRegionSectors=33
+
+    # FAT12/16 1 directory entry for '/EFI/BOOT' ('/EFI' is in the root directory region).
+    # FAT32 2 directory entries for '/EFI' and '/EFI/BOOT'.
+    maxDirectoryEntryClusters=2
+
+    maxClusterSectors=64 # 32KiB clusters with 512B sectors
+    minKernelMaxClusters=$(( (kernelSectors + (maxClusterSectors - 1)) / maxClusterSectors ))
+
+    maxDataRegionSectors=$(( (maxDirectoryEntryClusters + minKernelMaxClusters) * maxClusterSectors ))
+    unset maxKernelClusters
+    unset maxClusterSectors
+
+    # FAT12 3 sectors per 1024 clusters
+    # FAT16 1 sector per 256 clusters
+    # FAT32 1 sector per 128 clusters
+    minClustersPerFatSector=128
+
+    # 2 FATs each addressing maximum number of clusters needed if cluster's size is 1 sector
+    maxFatRegionSectors=$(( 2 * ((maxDirectoryEntryClusters + kernelSectors) + (minClustersPerFatSector - 1)) / minClustersPerFatSector ))
+    unset minClustersPerFatSector
+    unset maxDirectoryEntryClusters
+    unset kernelSectors
+
+    maxFatFsSectors=$(( maxReservedAndRootDirectoryRegionSectors + maxFatRegionSectors + maxDataRegionSectors ))
+    unset maxFatRegionSectors 
+    unset maxDataRegionSectors
+    unset maxReservedAndRootDirectoryRegionSectors 
+
+    diskImage=efi-stub.raw
+    truncate -s $(( (offsetSectors + maxFatFsSectors + trailingSectors) * sectorBytes )) $diskImage
+
+    offsetBytes=$(( offsetSectors * sectorBytes ))
+    unset sectorBytes
+    unset trailingSectors
+    unset offsetSectors
+
+    ${optionalString (partitionTableType != "none") ''
+      # FIXME: optionally round partition boundaries up to 1MiB (or 4 or 8?) and append `align-check optimal 1` command
+      # https://lwn.net/Articles/428584/
       parted --script $diskImage -- \
         mklabel gpt \
-        mkpart ESP fat32 8MiB ${bootSize} \
+        mkpart ESP fat32 "$offsetBytes"B 100% \
         set 1 boot on
       ${optionalString deterministic ''
           sgdisk \
-          --disk-guid=97FD5997-D90B-4AA3-8D16-C1723AEA73C \
-          --partition-guid=1:1C06F03B-704E-4657-B9CD-681A087A2FDC \
+          --disk-guid=14F88D31-4BB1-4184-B4BD-E6AD0227533C \
+          --partition-guid=1:08F9E924-6CD5-4EF5-BBEF-8FDE08D93C55 \
           $diskImage
       ''}
-
-      # FIXME: use already-calculated values instead of running `partx`?
-      # Get start & length of the root partition in sectors to $START and $SECTORS.
-      eval $(partx $diskImage -o START,SECTORS --nr ${rootPartition} --pairs)
-
-      # FIXME: copy the ESP filesystem into its partition (possibly using `dd` on $START and $SECTORS?)
-    '' else ''
-      # FIXME: move filesystem image into final destination
     ''}
 
+    # Create the ESP filesystem
+    mformat -i $diskImage@@$offsetBytes \
+      -v ESP \
+      -T $maxFatFsSectors \
+      -h 64 \
+      -s 32 \
+      ${optionalString deterministic "-N 989010A2"} \
+      ::
+    unset maxFatFsSectors
+
+    echo "Copying kernel to image..."
+    mmd -i $diskImage@@$offsetBytes ::/EFI ::/EFI/BOOT
+    mcopy -i $diskImage@@$offsetBytes $kernel ::/EFI/BOOT/bootx64.efi ||
+      (echo >&2 "ERROR: cptofs failed. diskSize might be too small for closure."; exit 1)
+    unset kernel
+    unset offsetBytes
+
     # Move or convert image
+    mkdir $out
     ${if format == "raw" then ''
       mv $diskImage $out/${filename}
     '' else ''
-      ${pkgs.qemu-utils}/bin/qemu-img convert -f raw -O ${format} ${compress} $diskImage $out/${filename}
+      qemu-img convert -f raw -O ${format} ${compress} $diskImage $out/${filename}
     ''}
     diskImage=$out/${filename}
   '';
