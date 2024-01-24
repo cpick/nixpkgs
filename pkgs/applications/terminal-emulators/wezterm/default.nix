@@ -28,6 +28,7 @@
 , nixosTests
 , runCommand
 , vulkan-loader
+, darwin
 }:
 
 rustPlatform.buildRustPackage rec {
@@ -85,6 +86,7 @@ rustPlatform.buildRustPackage rec {
     libiconv
     System
     UserNotifications
+    darwin.apple_sdk_11_0.Libsystem # TODO(cpick): see: https://github.com/NixOS/nixpkgs/issues/239384#issuecomment-1908687770
   ];
 
   buildFeatures = [ "distro-defaults" ];
