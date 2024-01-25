@@ -3,12 +3,12 @@
 , lib
 , fetchFromGitHub
 , ncurses
-, perl
 , pkg-config
 , python3
 , fontconfig
 , installShellFiles
 , openssl
+, libgit2_1_5
 , libGL
 , libX11
 , libxcb
@@ -63,16 +63,17 @@ rustPlatform.buildRustPackage rec {
     ncurses # tic for terminfo
     pkg-config
     python3
-  ] ++ lib.optional stdenv.isDarwin perl;
+  ];
 
   buildInputs = [
     fontconfig
+    libgit2_1_5
+    openssl
     zlib
   ] ++ lib.optionals stdenv.isLinux [
     libX11
     libxcb
     libxkbcommon
-    openssl
     wayland
     xcbutil
     xcbutilimage
@@ -89,6 +90,8 @@ rustPlatform.buildRustPackage rec {
 
   buildFeatures = [ "distro-defaults" ];
 
+  env.OPENSSL_NO_VENDOR = 1; # openssl-sys crate must use system openssl library
+  env.LIBGIT2_NO_VENDOR = 1; # libgit2-sys crate must use system libgit2 library
   env.NIX_LDFLAGS = lib.optionalString stdenv.isDarwin "-framework System";
 
   postInstall = ''
