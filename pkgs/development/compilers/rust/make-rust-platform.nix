@@ -1,9 +1,12 @@
-{ lib, buildPackages, callPackage, cargo-auditable, stdenv, runCommand }@prev:
+{ lib, buildPackages, callPackage, cargo-auditable, rust, stdenv, runCommand }@prev:
+
+lib.makeOverridable (
 
 { rustc
 , cargo
 , cargo-auditable ? prev.cargo-auditable
 , stdenv ? prev.stdenv
+, buildPackages ? prev.buildPackages
 , ...
 }:
 
@@ -36,5 +39,11 @@ rec {
   # Hooks
   inherit (callPackage ../../../build-support/rust/hooks {
     inherit stdenv cargo rustc;
+    rust = prev.rust.override ({
+      inherit stdenv;
+    } // lib.optionalAttrs stdenv.buildPlatform.isDarwin {
+      buildPackages = buildPackages // { inherit stdenv; };
+    });
   }) cargoBuildHook cargoCheckHook cargoInstallHook cargoNextestHook cargoSetupHook maturinBuildHook bindgenHook;
 }
+)
