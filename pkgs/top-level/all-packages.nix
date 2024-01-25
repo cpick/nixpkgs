@@ -3126,7 +3126,10 @@ with pkgs;
 
   wayst = callPackage ../applications/terminal-emulators/wayst { };
 
-  wezterm = darwin.apple_sdk_11_0.callPackage ../applications/terminal-emulators/wezterm {
+  wezterm = callPackage ../applications/terminal-emulators/wezterm {
+    rustPlatform = if stdenv.isDarwin
+      then rustPlatform.override { stdenv = overrideSDK stdenv "11.0"; }
+      else rustPlatform;
     inherit (darwin.apple_sdk_11_0.frameworks) Cocoa CoreGraphics Foundation UserNotifications System;
   };
 
