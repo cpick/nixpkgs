@@ -1,4 +1,4 @@
-{ lib, buildPackages, callPackage, cargo-auditable, rust, stdenv, runCommand }@prev:
+{ lib, buildPackages, callPackage, callPackages, cargo-auditable, rust, stdenv, runCommand }@prev:
 
 lib.makeOverridable (
 
@@ -37,7 +37,7 @@ rec {
   };
 
   # Hooks
-  inherit (callPackage ../../../build-support/rust/hooks {
+  inherit (callPackages ../../../build-support/rust/hooks {
     inherit stdenv cargo rustc;
     rust = prev.rust.override ({
       inherit stdenv;

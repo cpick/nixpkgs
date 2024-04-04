@@ -8,13 +8,13 @@
 
 stdenv.mkDerivation rec {
   pname = "isolate";
-  version = "1.10";
+  version = "2.0";
 
   src = fetchFromGitHub {
     owner = "ioi";
     repo = "isolate";
     rev = "v${version}";
-    hash = "sha256-fuv9HOw0XkRBRjwAp4b6LpoB5p7a+yo66AcT3B0yQUw=";
+    hash = "sha256-kKXkXPVB9ojyIERvEdkHkXC//Agin8FPcpTBmTxh/ZE=";
   };
 
   nativeBuildInputs = [

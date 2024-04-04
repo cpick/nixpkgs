@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "steampipe";
-  version = "0.21.3";
+  version = "0.22.0";
 
   src = fetchFromGitHub {
     owner = "turbot";
     repo = "steampipe";
     rev = "v${version}";
-    hash = "sha256-Qbg6f8fIupAEiiT7gDRQCs3pe1lw+tO5va5PpwgATfk=";
+    hash = "sha256-Qmb4dBLtztrhnm8fKEkaxX2tJAXsQ+/C8cweQbRc7uk=";
   };
 
-  vendorHash = "sha256-XwFBXQw6OfxIQWYidTj+TLn0TrVTrfVry6MgiQWIoV4=";
+  vendorHash = "sha256-2p/D/sycx78BXBe+WHeYP4hLz1aX33cCRQ/AbwKkidM=";
   proxyVendor = true;
 
   patchPhase = ''

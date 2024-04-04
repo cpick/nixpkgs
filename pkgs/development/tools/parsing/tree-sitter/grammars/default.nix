@@ -28,6 +28,7 @@
   tree-sitter-fish = lib.importJSON ./tree-sitter-fish.json;
   tree-sitter-fortran = lib.importJSON ./tree-sitter-fortran.json;
   tree-sitter-gdscript = lib.importJSON ./tree-sitter-gdscript.json;
+  tree-sitter-gleam = lib.importJSON ./tree-sitter-gleam.json;
   tree-sitter-glimmer = lib.importJSON ./tree-sitter-glimmer.json;
   tree-sitter-glsl = lib.importJSON ./tree-sitter-glsl.json;
   tree-sitter-go = lib.importJSON ./tree-sitter-go.json;
@@ -91,6 +92,8 @@
   tree-sitter-supercollider = lib.importJSON ./tree-sitter-supercollider.json;
   tree-sitter-surface = lib.importJSON ./tree-sitter-surface.json;
   tree-sitter-svelte = lib.importJSON ./tree-sitter-svelte.json;
+  tree-sitter-talon = lib.importJSON ./tree-sitter-talon.json;
+  tree-sitter-templ = lib.importJSON ./tree-sitter-templ.json;
   tree-sitter-tiger = lib.importJSON ./tree-sitter-tiger.json;
   tree-sitter-tlaplus = lib.importJSON ./tree-sitter-tlaplus.json;
   tree-sitter-toml = lib.importJSON ./tree-sitter-toml.json;
@@ -102,9 +105,9 @@
   tree-sitter-verilog = lib.importJSON ./tree-sitter-verilog.json;
   tree-sitter-vim = lib.importJSON ./tree-sitter-vim.json;
   tree-sitter-vue = lib.importJSON ./tree-sitter-vue.json;
+  tree-sitter-wgsl = lib.importJSON ./tree-sitter-wgsl.json;
   tree-sitter-wing = lib.importJSON ./tree-sitter-wing.json;
   tree-sitter-yaml = lib.importJSON ./tree-sitter-yaml.json;
   tree-sitter-yang = lib.importJSON ./tree-sitter-yang.json;
   tree-sitter-zig = lib.importJSON ./tree-sitter-zig.json;
-  tree-sitter-wgsl = lib.importJSON ./tree-sitter-wgsl.json;
 }

@@ -111,8 +111,7 @@ in buildFHSEnv rec {
     xorg.libXdamage
     xorg.libxshmfence
     xorg.libXxf86vm
-    libelf
-    (lib.getLib elfutils)
+    elfutils
 
     # Without these it silently fails
     xorg.libXinerama
@@ -310,6 +309,7 @@ in buildFHSEnv rec {
       description = "Steam dependencies (dummy package, do not use)";
     };
 
+  passthru.steamargs = args;
   passthru.run = buildFHSEnv {
     name = "steam-run";
 

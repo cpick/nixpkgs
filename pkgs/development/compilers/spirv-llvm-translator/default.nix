@@ -16,7 +16,11 @@ let
 
   # ROCm, if actively updated will always be at the latest version
   branch =
-    if llvmMajor == "17" || isROCm then rec {
+    if llvmMajor == "18" then rec {
+      version = "18.1.0";
+      rev = "v${version}";
+      hash = "sha256-64guZiuO7VpaX01wNIjV7cnjEAe6ineMdY44S6sA33k=";
+    } else if llvmMajor == "17" || isROCm then rec {
       version = "17.0.0";
       rev = "v${version}";
       hash = "sha256-Rzm5Py9IPFtS9G7kME+uSwZ/0gPGW6MlL35ZWk4LfHM=";
@@ -28,10 +32,10 @@ let
       version = "15.0.0";
       rev = "v${version}";
       hash = "sha256-OsDohXRxovtEXaWiRGp8gJ0dXmoALyO+ZimeSO8aPVI=";
-    } else if llvmMajor == "14" then rec{
-      version = "14.0.0+unstable-2023-06-22";
-      rev = "23f398bf369093b1fd67459db8071ffcc6b92658";
-      hash = "sha256-o7cVj5/ZMER2CvfxL4pRb2qCIxC/HFUPiitf2fKtCyk=";
+    } else if llvmMajor == "14" then {
+      version = "14.0.0+unstable-2024-01-23";
+      rev = "582a3024c0c2d624a40fa2731d74b2c9ca3b94ab";
+      hash = "sha256-1IRX+5Xh8Fj+/1DIZQrN8ijb2y7H39Y3u+IdbqjQgCc=";
     } else if llvmMajor == "11" then {
       version = "11.0.0+unstable-2022-05-04";
       rev = "4ef524240833abfeee1c5b9fff6b1bd53f4806b3"; # 267 commits ahead of v11.0.0
@@ -48,7 +52,22 @@ disable-warnings-if-gcc13 (stdenv.mkDerivation {
     inherit (branch) rev hash;
   };
 
-  patches = lib.optionals (llvmMajor == "16") [
+  patches = lib.optionals (llvmMajor == "18") [
+    # Fixes build after SPV_INTEL_maximum_registers breaking change
+    # TODO: remove on next spirv-headers release
+    (fetchpatch {
+      url = "https://github.com/KhronosGroup/SPIRV-LLVM-Translator/commit/d970c9126c033ebcbb7187bc705eae2e54726b74.patch";
+      revert = true;
+      hash = "sha256-71sJuGqVjTcB549eIiCO0LoqAgxkdEHCoxh8Pd/Qzz8=";
+    })
+  ] ++ lib.optionals (lib.versionAtLeast llvmMajor "15" && lib.versionOlder llvmMajor "18") [
+    # Fixes build after spirv-headers breaking change
+    (fetchpatch {
+      url = "https://github.com/KhronosGroup/SPIRV-LLVM-Translator/commit/0166a0fb86dc6c0e8903436bbc3a89bc3273ebc0.patch";
+      excludes = ["spirv-headers-tag.conf"];
+      hash = "sha256-17JJG8eCFVphElY5fVT/79hj0bByWxo8mVp1ZNjQk/M=";
+    })
+  ] ++ lib.optionals (llvmMajor == "16") [
     # Fixes builds that link against external LLVM dynamic library
     (fetchpatch {
       url = "https://github.com/KhronosGroup/SPIRV-LLVM-Translator/commit/f3b9b604d7eda18d0d1029d94a6eebd33aa3a3fe.patch";

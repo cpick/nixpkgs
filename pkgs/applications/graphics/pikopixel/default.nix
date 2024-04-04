@@ -1,14 +1,10 @@
 { lib
+, clangStdenv
 , fetchurl
 , gnustep
-, llvmPackages_9
 }:
 
-let
-  # Earlier llvm than 9 segfaults
-  gnustep' = gnustep.override { llvmPackages = llvmPackages_9; };
-
-in gnustep'.gsmakeDerivation rec {
+clangStdenv.mkDerivation rec {
   pname = "pikopixel";
   version = "1.0-b10";
 
@@ -19,10 +15,15 @@ in gnustep'.gsmakeDerivation rec {
 
   sourceRoot = "PikoPixel.Sources.${version}/PikoPixel";
 
+  nativeBuildInputs = [
+    gnustep.make
+    gnustep.wrapGNUstepAppsHook
+  ];
+
   buildInputs = [
-    gnustep'.base
-    gnustep'.gui
-    gnustep'.back
+    gnustep.base
+    gnustep.gui
+    gnustep.back
   ];
 
   # Fix the Exec and Icon paths in the .desktop file, and save the file in the

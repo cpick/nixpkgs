@@ -2,8 +2,8 @@
 , texlive
 , zlib, libiconv, libpng, libX11
 , freetype, gd, libXaw, icu, ghostscript, libXpm, libXmu, libXext
-, perl, perlPackages, python3Packages, pkg-config
-, libpaper, graphite2, zziplib, harfbuzz, potrace, gmp, mpfr
+, perl, perlPackages, python3Packages, pkg-config, cmake, ninja
+, libpaper, graphite2, zziplib, harfbuzz, potrace, gmp, mpfr, mupdf-headless
 , brotli, cairo, pixman, xorg, clisp, biber, woff2, xxHash
 , makeWrapper, shortenPerlShebang, useFixedHashes, asymptote
 , biber-ms
@@ -34,16 +34,16 @@ let
     "tex4ht" "texlive-scripts-extra" "texware" "tie" "tpic2pdftex" "ttfutils"
     "uptex" "velthuis" "vlna" "web" "xml2pmx" ];
   coreBigPackages = [ "metafont" "mflua" "metapost" "luatex" "luahbtex"
-    "xetex" ] ++ lib.optional withLuaJIT "luajittex";
+    "upmendex" "xetex" ] ++ lib.optional withLuaJIT "luajittex";
   binPackages = lib.getAttrs (corePackages ++ coreBigPackages) tlpdb;
 
   common = {
     src = fetchurl {
       urls = [
-        "http://ftp.math.utah.edu/pub/tex/historic/systems/texlive/${year}/texlive-${year}0321-source.tar.xz"
-              "ftp://tug.ctan.org/pub/tex/historic/systems/texlive/${year}/texlive-${year}0321-source.tar.xz"
+        "http://ftp.math.utah.edu/pub/tex/historic/systems/texlive/${year}/texlive-${year}0313-source.tar.xz"
+              "ftp://tug.ctan.org/pub/tex/historic/systems/texlive/${year}/texlive-${year}0313-source.tar.xz"
       ];
-      hash = "sha256-X/o0heUessRJBJZFD8abnXvXy55TNX2S20vNT9YXm1Y=";
+      hash = "sha256-OHiqDh7QMBwFOw4u5OmtmZxEE0X0iC55vdHI9M6eebk=";
     };
 
     prePatch = ''
@@ -141,12 +141,6 @@ core = stdenv.mkDerivation rec {
     perl
   ];
 
-  patches = [
-    # Fix implicit `int` on `main`, which results in an error when building with clang 16.
-    # This is fixed upstream and can be dropped with the 2023 release.
-    ./fix-implicit-int.patch
-  ];
-
   hardeningDisable = [ "format" ];
 
   preConfigure = ''
@@ -203,7 +197,7 @@ core = stdenv.mkDerivation rec {
 inherit (core-big) metafont mflua metapost luatex luahbtex xetex;
 luajittex = core.big.luajittex or null;
 core-big = stdenv.mkDerivation {
-  pname = "texlive-core-big.bin";
+  pname = "texlive-bin-big";
   inherit version;
 
   __structuredAttrs = true;
@@ -211,20 +205,19 @@ core-big = stdenv.mkDerivation {
   inherit (common) binToOutput src prePatch;
 
   patches = [
-    # improves reproducibility of fmt files. This patch has been proposed upstream,
-    # but they are considering some other approaches as well. This is fairly
-    # conservative so we can safely apply it until they make a decision
-    # https://mailman.ntg.nl/pipermail/dev-luatex/2022-April/006650.html
+    # improves reproducibility of fmt files
+    # see discussion at https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1009196
     (fetchpatch {
-      name = "reproducible_exception_strings.patch";
-      url = "https://bugs.debian.org/cgi-bin/bugreport.cgi?att=1;bug=1009196;filename=reproducible_exception_strings.patch;msg=5";
-      sha256 = "sha256-RNZoEeTcWnrLaltcYrhNIORh42fFdwMzBfxMRWVurbk=";
+      name = "lua_fixed_hash.patch";
+      url = "https://bugs.debian.org/cgi-bin/bugreport.cgi?att=1;bug=1009196;filename=lua_fixed_hash.patch;msg=45";
+      sha256 = "sha256-FTu1eRd3AUU7IRs2/7e7uwHuvZsrzTBPypbcEZkU7y4=";
     })
     # fixes a security-issue in luatex that allows arbitrary code execution even with shell-escape disabled, see https://tug.org/~mseven/luatex.html
+    # fixed in LuaTeX 1.17.0, remove patch when upgrading to TL 2024
     (fetchpatch {
       name = "CVE-2023-32700.patch";
-      url = "https://tug.org/~mseven/luatex-files/2022/patch";
-      hash = "sha256-o9ENLc1ZIIOMX6MdwpBIgrR/Jdw6tYLmAyzW8i/FUbY=";
+      url = "https://tug.org/~mseven/luatex-files/2023/patch";
+      hash = "sha256-AvMedFkZJAFsCJ51eQqBQM4MpzLzn+GeBrzuTzISVkk=";
       excludes = [  "build.sh" ];
       stripLen = 1;
     })
@@ -238,15 +231,12 @@ core-big = stdenv.mkDerivation {
       stripLen = 1;
       extraPrefix = "libs/luajit/LuaJIT-src/";
     })
-    # Fix implicit `int` on `main`, which results in an error when building with clang 16.
-    # This is fixed upstream and can be dropped with the 2023 release.
-    ./fix-implicit-int.patch
   ];
 
   hardeningDisable = [ "format" ];
 
   inherit (core) nativeBuildInputs depsBuildBuild;
-  buildInputs = core.buildInputs ++ [ core cairo harfbuzz icu graphite2 libX11 ];
+  buildInputs = core.buildInputs ++ [ core cairo harfbuzz icu graphite2 libX11 potrace ];
 
   /* deleting the unused packages speeds up configure by a considerable margin
      and ensures we do not rebuild existing libraries by mistake */
@@ -292,8 +282,8 @@ core-big = stdenv.mkDerivation {
 
 
 chktex = stdenv.mkDerivation {
-  pname = "texlive-chktex.bin";
-  inherit version;
+  pname = "chktex";
+  inherit (texlive.pkgs.chktex) version;
 
   inherit (common) src;
 
@@ -309,46 +299,58 @@ chktex = stdenv.mkDerivation {
   enableParallelBuilding = true;
 };
 
+# the LuaMetaTeX engine (distributed since TeX Live 2023) must be built separately
+# the sources used by TL are stored in the source TL repo
+# for details see https://wiki.contextgarden.net/Building_LuaMetaTeX_for_TeX_Live
+context = stdenv.mkDerivation rec {
+  pname = "luametatex";
+  version = "2.10.08";
 
-dvisvgm = stdenv.mkDerivation {
-  pname = "texlive-dvisvgm.bin";
-  inherit version;
+  src = fetchurl {
+    url = "https://tug.org/svn/texlive/trunk/Master/source/luametatex-${version}.tar.xz?revision=67034&view=co";
+    hash = "sha256-3JeOUQ63jJOZWTxFCoyWjfcrspmdmC/yqgS1JaLfTWk=";
+  };
 
-  inherit (common) src;
+  enableParallelBuilding = true;
+  nativeBuildInputs = [ cmake ninja ];
 
-  patches = [
-    (fetchpatch {
-      url = "https://github.com/mgieseki/dvisvgm/commit/629544928877362d0c6d64f20695f7df3073c5eb.patch";
-      stripLen = 1;
-      extraPrefix = "texk/dvisvgm/dvisvgm-src/";
-      hash = "sha256-CBCbc/woaFeLw7aBG/kSVYc3a5Q56zbAB64kK6mRy4g=";
-    })
+  meta = with lib; {
+    description = "The LUAMETATEX engine is a follow up on LUATEX and is again part of CONTEXT development";
+    homepage = "https://www.pragma-ade.nl/luametatex-1.htm";
+    license = licenses.gpl2Plus;
+    maintainers = with lib.maintainers; [ apfelkuchen6 xworld21 ];
+  };
+};
 
-    (fetchpatch {
-      name = "gcc-13.patch";
-      url = "https://github.com/mgieseki/dvisvgm/commit/d5df85b403602c927fe56a1f692af91182a1facd.patch";
-      stripLen = 1;
-      extraPrefix = "texk/dvisvgm/dvisvgm-src/";
-      hash = "sha256-U5m9jPmfAXOQKaU+aO/h6hEAzHRPqKcdj5k8f5gU9JQ=";
-      excludes = [ "texk/dvisvgm/dvisvgm-src/src/ttf/TTFTable.hpp" ];
-    })
+dvisvgm = stdenv.mkDerivation rec {
+  pname = "dvisvgm";
+  version = "3.1.2";
+
+  src = assert lib.assertMsg (version == texlive.pkgs.dvisvgm.version) "dvisvgm: TeX Live version (${texlive.pkgs.dvisvgm.version}) different from source (${version}), please update dvisvgm"; fetchurl {
+    url = "https://github.com/mgieseki/dvisvgm/releases/download/${version}/dvisvgm-${version}.tar.gz";
+    hash = "sha256-vqeDrf6TG3eUoMMNeQK4Kw1NmtaBbc2KCVqTHNM+rPY=";
+  };
+
+  configureFlags = [
+    "--disable-manpage" # man pages are provided by the doc container
   ];
 
-  preConfigure = "cd texk/dvisvgm";
-
-  configureFlags = common.configureFlags
-    ++ [ "--with-system-kpathsea" ];
+  # PDF handling requires mutool (from mupdf) since Ghostscript 10.01
+  postPatch = ''
+    substituteInPlace src/PDFHandler.cpp \
+      --replace-fail 'Process("mutool"' "Process(\"$(PATH="$HOST_PATH" command -v mutool)\""
+  '';
 
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ core brotli ghostscript zlib freetype woff2 potrace xxHash ];
+  buildInputs = [ core brotli ghostscript zlib freetype woff2 potrace xxHash mupdf-headless ];
 
   enableParallelBuilding = true;
 };
 
 
 dvipng = stdenv.mkDerivation {
-  pname = "texlive-dvipng.bin";
-  inherit version;
+  pname = "dvipng";
+  inherit (texlive.pkgs.dvipng) version;
 
   inherit (common) src;
 
@@ -411,8 +413,8 @@ inherit biber;
 inherit biber-ms;
 bibtexu = bibtex8;
 bibtex8 = stdenv.mkDerivation {
-  pname = "texlive-bibtex-x.bin";
-  inherit version;
+  pname = "bibtex-x";
+  inherit (texlive.pkgs.bibtexu) version;
 
   inherit (common) src;
 
@@ -429,8 +431,8 @@ bibtex8 = stdenv.mkDerivation {
 
 
 xdvi = stdenv.mkDerivation {
-  pname = "texlive-xdvi.bin";
-  inherit version;
+  pname = "xdvi";
+  inherit (texlive.pkgs.xdvi) version;
 
   inherit (common) src;
 
@@ -453,7 +455,7 @@ xdvi = stdenv.mkDerivation {
 };
 
 xpdfopen = stdenv.mkDerivation {
-  pname = "texlive-xpdfopen.bin";
+  pname = "xpdfopen";
   inherit (texlive.pkgs.xpdfopen) version;
 
   inherit (common) src;
@@ -471,8 +473,8 @@ xpdfopen = stdenv.mkDerivation {
 {
 
 xindy = stdenv.mkDerivation {
-  pname = "texlive-xindy.bin";
-  inherit version;
+  pname = "xindy";
+  inherit (texlive.pkgs.xindy) version;
 
   inherit (common) src;
 

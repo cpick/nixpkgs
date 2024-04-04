@@ -16,13 +16,13 @@ let
 in
 rustPlatform.buildRustPackage rec {
   pname = "psst";
-  version = "unstable-2024-01-12";
+  version = "unstable-2024-03-04";
 
   src = fetchFromGitHub {
     owner = "jpochyla";
     repo = pname;
-    rev = "c70ace50e8c50c38dc6c4ea1156de2b50e6e76b5";
-    hash = "sha256-WCtD06fZHdn0kT5SDE7aTUZvQlX9OBSAqHu+qopBzTM=";
+    rev = "0cb4f6964b5ba771182ccfe005260a86a494ef92";
+    hash = "sha256-W+MFToyvYDQuC/8DqigvENxzJ6QGQOAeAdmdWG6+qZk=";
   };
 
   cargoLock = {
@@ -68,5 +68,6 @@ rustPlatform.buildRustPackage rec {
     homepage = "https://github.com/jpochyla/psst";
     license = licenses.mit;
     maintainers = with maintainers; [ vbrandl peterhoeg ];
+    mainProgram = "psst-gui";
   };
 }

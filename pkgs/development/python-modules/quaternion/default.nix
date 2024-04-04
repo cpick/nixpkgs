@@ -8,14 +8,14 @@
 
 buildPythonPackage rec {
   pname = "quaternion";
-  version = "2022.4.4";
+  version = "2023.0.3";
   format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "moble";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-fgyi50purfqUIe7zuz/52K6Sw3TjuvAX0EnzkXD//B4=";
+    hash = "sha256-vSkFHYXcT14aW3OTfqYymVQbpWnKFEVkhh3IQTi5xS4=";
   };
 
   propagatedBuildInputs = [

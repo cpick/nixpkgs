@@ -9,16 +9,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "cargo-deny";
-  version = "0.14.7";
+  version = "0.14.17";
 
   src = fetchFromGitHub {
     owner = "EmbarkStudios";
     repo = "cargo-deny";
     rev = version;
-    hash = "sha256-Ods0uibPrvrFW9HRHm4k9xhmOmvW8zJfVjMYEX7H0UA=";
+    hash = "sha256-ccj9BvvEtTsiV6jfrmLsQGDfem9f8L7rfCY8lK4cC+Y=";
   };
 
-  cargoHash = "sha256-/wHXKzHl00q+8e4A9YFAGqhoCqVwkFhMtWTuzdmZIHc=";
+  cargoHash = "sha256-pdVHBOxwhPgSl0+zoAobchxVkhtdx5/F/Rpp2uPx1K4=";
 
   nativeBuildInputs = [
     pkg-config
@@ -28,6 +28,7 @@ rustPlatform.buildRustPackage rec {
     zstd
   ] ++ lib.optionals stdenv.isDarwin [
     darwin.apple_sdk.frameworks.Security
+    darwin.apple_sdk.frameworks.SystemConfiguration
   ];
 
   env = {

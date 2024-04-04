@@ -1,7 +1,9 @@
 { lib
 , buildPythonPackage
 , certifi
+, cryptography
 , fetchPypi
+, fetchpatch
 , openssl
 , pylsqpack
 , pyopenssl
@@ -13,15 +15,22 @@
 
 buildPythonPackage rec {
   pname = "aioquic";
-  version = "0.9.23";
+  version = "0.9.25";
   pyproject = true;
 
   disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-UsnaYO0IN/6LimoNfc8N++vsjpoCfhDr9yBPBWnFj6g=";
+    hash = "sha256-cHlceJBTJthVwq5SQHIjSq5YbHibgSkuJy0CHpsEMKM=";
   };
+
+  patches = [
+    (fetchpatch {
+      url = "https://github.com/aiortc/aioquic/commit/e899593805e0b31325a1d347504eb8e6100fe87d.diff";
+      hash = "sha256-TTpIIWX/R4k2KxhsN17O9cRW/dN0AARYnju8JTht3D8=";
+    })
+  ];
 
   nativeBuildInputs = [
     setuptools
@@ -29,6 +38,7 @@ buildPythonPackage rec {
 
   propagatedBuildInputs = [
     certifi
+    cryptography
     pylsqpack
     pyopenssl
     service-identity
