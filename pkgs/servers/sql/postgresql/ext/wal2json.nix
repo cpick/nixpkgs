@@ -1,14 +1,21 @@
-{ lib, stdenv, fetchFromGitHub, postgresql }:
+{
+  lib,
+  stdenv,
+  callPackage,
+  fetchFromGitHub,
+  postgresql,
+  nixosTests,
+}:
 
 stdenv.mkDerivation rec {
   pname = "wal2json";
-  version = "2.5";
+  version = "2.6";
 
   src = fetchFromGitHub {
     owner = "eulerto";
     repo = "wal2json";
-    rev = "wal2json_${builtins.replaceStrings ["."] ["_"] version}";
-    sha256 = "sha256-Gpc9uDKrs/dmVSFgdgHM453+TaEnhRh9t0gDbSn8FUI=";
+    rev = "wal2json_${builtins.replaceStrings [ "." ] [ "_" ] version}";
+    sha256 = "sha256-+QoACPCKiFfuT2lJfSUmgfzC5MXf75KpSoc2PzPxKyM=";
   };
 
   buildInputs = [ postgresql ];
@@ -19,6 +26,8 @@ stdenv.mkDerivation rec {
     install -D -t $out/lib *${postgresql.dlSuffix}
     install -D -t $out/share/postgresql/extension sql/*.sql
   '';
+
+  passthru.tests = nixosTests.postgresql.wal2json.passthru.override postgresql;
 
   meta = with lib; {
     description = "PostgreSQL JSON output plugin for changeset extraction";
