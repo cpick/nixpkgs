@@ -56,12 +56,6 @@ in
       example = 8192;
       description = "The runner's memory in MB";
     };
-    cores = mkOption {
-      default = 1;
-      type = types.int;
-      example = 4;
-      description = "The runner's number of CPU cores";
-    };
     min-free = mkOption {
       default = 1024 * 1024 * 1024;
       type = types.int;
@@ -263,8 +257,6 @@ in
       diskSize = cfg.diskSize;
 
       memorySize = cfg.memorySize;
-
-      cores = cfg.cores;
 
       forwardPorts = [
         {

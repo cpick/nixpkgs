@@ -362,6 +362,7 @@
   ./security/polkit.nix
   ./security/rngd.nix
   ./security/rtkit.nix
+  ./security/soteria.nix
   ./security/sudo.nix
   ./security/sudo-rs.nix
   ./security/systemd-confinement.nix
@@ -588,6 +589,7 @@
   ./services/hardware/fancontrol.nix
   ./services/hardware/freefall.nix
   ./services/hardware/fwupd.nix
+  ./services/hardware/g810-led.nix
   ./services/hardware/handheld-daemon.nix
   ./services/hardware/hddfancontrol.nix
   ./services/hardware/illum.nix
@@ -888,6 +890,7 @@
   ./services/monitoring/do-agent.nix
   ./services/monitoring/fusion-inventory.nix
   ./services/monitoring/gatus.nix
+  ./services/monitoring/glances.nix
   ./services/monitoring/goss.nix
   ./services/monitoring/grafana-agent.nix
   ./services/monitoring/grafana-image-renderer.nix
@@ -1053,6 +1056,7 @@
   ./services/networking/gdomap.nix
   ./services/networking/ghostunnel.nix
   ./services/networking/git-daemon.nix
+  ./services/networking/globalprotect-vpn.nix
   ./services/networking/gns3-server.nix
   ./services/networking/gnunet.nix
   ./services/networking/go-autoconfig.nix
@@ -1389,6 +1393,7 @@
   ./services/wayland/cage.nix
   ./services/wayland/hypridle.nix
   ./services/web-apps/akkoma.nix
+  ./services/web-apps/agorakit.nix
   ./services/web-apps/alps.nix
   ./services/web-apps/anuko-time-tracker.nix
   ./services/web-apps/artalk.nix
@@ -1409,6 +1414,7 @@
   ./services/web-apps/crabfit.nix
   ./services/web-apps/davis.nix
   ./services/web-apps/cryptpad.nix
+  ./services/web-apps/dashy.nix
   ./services/web-apps/dependency-track.nix
   ./services/web-apps/dex.nix
   ./services/web-apps/discourse.nix
@@ -1627,7 +1633,6 @@
   ./system/boot/loader/external/external.nix
   ./system/boot/loader/init-script/init-script.nix
   ./system/boot/loader/loader.nix
-  ./system/boot/loader/raspberrypi/raspberrypi.nix
   ./system/boot/loader/systemd-boot/systemd-boot.nix
   ./system/boot/luksroot.nix
   ./system/boot/stratisroot.nix
