@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, TypedDict, cast
 
 import requests
+from requests.adapters import HTTPAdapter, Retry
 
 eprint = functools.partial(print, file=sys.stderr)
 
@@ -21,8 +22,17 @@ def load_toml(path: Path) -> dict[str, Any]:
 
 
 def download_file_with_checksum(url: str, destination_path: Path) -> str:
+    retries = Retry(
+        total=5,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504]
+    )
+    session = requests.Session()
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+
     sha256_hash = hashlib.sha256()
-    with requests.get(url, stream=True) as response:
+    with session.get(url, stream=True) as response:
         if not response.ok:
             raise Exception(f"Failed to fetch file from {url}. Status code: {response.status_code}")
         with open(destination_path, "wb") as file:
@@ -118,18 +128,16 @@ def create_vendor_staging(lockfile_path: Path, out_dir: Path) -> None:
     out_dir.mkdir(exist_ok=True)
     shutil.copy(lockfile_path, out_dir / "Cargo.lock")
 
-    # create a pool with at most 10 concurrent jobs
-    with mp.Pool(min(10, mp.cpu_count())) as pool:
+    # fetch git trees sequentially, since fetching concurrently leads to flaky behaviour
+    if len(git_packages) != 0:
+        (out_dir / "git").mkdir()
+        for git_sha_rev, url in git_sha_rev_to_url.items():
+            download_git_tree(url, git_sha_rev, out_dir)
 
-        if len(git_packages) != 0:
-            (out_dir / "git").mkdir()
-            # run download jobs in parallel
-            git_args_gen = ((url, git_sha_rev, out_dir) for git_sha_rev, url in git_sha_rev_to_url.items())
-            pool.starmap(download_git_tree, git_args_gen)
-
+    # run tarball download jobs in parallel, with at most 5 concurrent download jobs
+    with mp.Pool(min(5, mp.cpu_count())) as pool:
         if len(registry_packages) != 0:
             (out_dir / "tarballs").mkdir()
-            # run download jobs in parallel
             tarball_args_gen = ((pkg, out_dir) for pkg in registry_packages)
             pool.starmap(download_tarball, tarball_args_gen)
 
