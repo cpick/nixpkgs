@@ -6,6 +6,7 @@
 , bzip2
 , bzip3
 , lz4
+, makeWrapper
 , pcre2
 , testers
 , xz
@@ -15,14 +16,16 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "ugrep";
-  version = "7.0.3";
+  version = "7.1.1";
 
   src = fetchFromGitHub {
     owner = "Genivia";
     repo = "ugrep";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-C/Nb5wxZtMzYBJmqOj8UwCU5yrQIrHCHsstuIiKMMq0=";
+    hash = "sha256-l/AHt0OLI76AEOOziFXdfQdJlx6HqdFoEJ27YhwUJnQ=";
   };
+
+  nativeBuildInputs = [ makeWrapper ];
 
   buildInputs = [
     boost
@@ -35,6 +38,12 @@ stdenv.mkDerivation (finalAttrs: {
     zlib
     zstd
   ];
+
+  postFixup = ''
+    for i in ug+ ugrep+; do
+      wrapProgram "$out/bin/$i" --prefix PATH : "$out/bin"
+    done
+  '';
 
   passthru.tests = {
     version = testers.testVersion {

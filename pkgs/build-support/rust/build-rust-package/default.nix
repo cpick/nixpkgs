@@ -30,6 +30,7 @@
 , cargoPatches ? []
 , patches ? []
 , sourceRoot ? null
+, cargoRoot ? null
 , logLevel ? ""
 , buildInputs ? []
 , nativeBuildInputs ? []
@@ -71,14 +72,14 @@ let
     if cargoVendorDir != null then null
     else if cargoDeps != null then cargoDeps
     else if cargoLock != null then importCargoLock cargoLock
-    else if useFetchCargoVendor then (fetchCargoVendor {
-      inherit src srcs sourceRoot preUnpack unpackPhase postUnpack;
+    else if useFetchCargoVendor then fetchCargoVendor ({
+      inherit src srcs sourceRoot cargoRoot preUnpack unpackPhase postUnpack;
       name = cargoDepsName;
       patches = cargoPatches;
       hash = args.cargoHash;
     } // depsExtraArgs)
     else fetchCargoTarball ({
-      inherit src srcs sourceRoot preUnpack unpackPhase postUnpack cargoUpdateHook;
+      inherit src srcs sourceRoot cargoRoot preUnpack unpackPhase postUnpack cargoUpdateHook;
       name = cargoDepsName;
       patches = cargoPatches;
     } // lib.optionalAttrs (args ? cargoHash) {
